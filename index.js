@@ -29,62 +29,76 @@ app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
 
+app.get('/api/shorturl/:shortUrl', async function(req, res) {
+  console.log(`\n\nBuscando a short_url: ${req.params.shortUrl}`)
+  let shortUrl = req.params.shortUrl
+
+  try {
+    const findUrl = await Url.findOne({short_url: shortUrl}, "original_url");
+    console.log(findUrl.original_url)
+    res.status(301).redirect(findUrl.original_url)
+  }
+  catch(err) {
+    console.log("Não foi possível buscar a URL no banco de dados.")
+    console.log(err)
+  }
+});
+
 app.post('/api/shorturl', function(req,res) {
   let original_url = req.body.url
-  console.log(`POST: ${original_url}`)
-  original_url = original_url.replace('https://','');
-  original_url = original_url.replace('http://','');
+  console.log(`\n\nPostando a URL: ${original_url}`)
 
-  dns.lookup(original_url, (error, address, family) => {
+  dns.lookup(original_url.replace('https://','').replace('http://',''), async(err, address) => {
     // if an error occurs, eg. the hostname is incorrect!
-    if (error) {
-      console.log(error);
+    if (err) {
+      console.log(err);
       res.json({ error: 'invalid url' });
     }
+    // if no error exists
     else {
-      console.log("Buscando URL")
-      // if no error exists
-      Url.findOne({original_url: original_url}, "original_url short_url", (err, doc) =>{
-        if(err) {
-          res.json({error: 'Não foi possível acessar o banco de dados'});
-        }
+      console.log("Buscando URL");
+      try {
+        // Verifica se a URL está no banco de dados
+        const findUrl = await Url.findOne({original_url: original_url}, "original_url short_url");
 
-        if(doc === null) {
-          console.log("Inserindo registro")
-          Url.findOne()
-          .sort({short_url: -1})
-          .select({short_url: 1})
-          .exec((err, short_url_obj) => {
-            if(err) {
-              console.log("Não foi possível encontrar a última short_url");
-            }
-            else {
-              console.log(`Última short_url: ${short_url_obj.short_url}`)
-              let new_register = {original_url: original_url, short_url: (short_url_obj.short_url + 1)}
-              const createData = async () => {
-                try{
-                    const createdUrls = await Url.create(new_register)
-                    console.log(createdUrls)
-                    res.json({original_url: "https://" + new_register.original_url, short_url: new_register.short_url})
-                }catch(err){
-                    console.log(error)
-                }
-              }
-              createData();
-            }
-          })
-        }
+        // Se não encontrar a URL, inicia o processo para salvá-la
+        if(!findUrl) {
+          console.log("URL não encontrada. Iniciando processo de cadastro.");
 
+          // Busca a última short_url para incrementar
+          const findLastShort = await Url.findOne().sort({short_url: -1}).select({short_url: 1});
+          console.log(`Última URL: ${findLastShort.short_url}`);
+          
+          // Cria o registro incrementando o valor obtido
+          let newRegister = {
+            original_url: original_url, 
+            short_url: (findLastShort.short_url + 1)
+          };
+          
+          // Salva o registro e retorna o JSON
+          const insertUrl = await Url.create(newRegister)       ;     
+          console.log(`short_url inserida: ${insertUrl.short_url}`);
+
+          // Retorna o objeto construído
+          res.json(newRegister);
+        }
+        
+        // Se encontrar a URL, a retorna como objeto
         else {
           res.json({
-            original_url: "https://" + doc.original_url,
-            short_url: doc.short_url
-          })
+            original_url: findUrl.original_url,
+            short_url: findUrl.short_url
+          });
         }
-      });
+      }
+      catch(err) {
+        console.log("Não foi possível buscar ou inserir no banco de dados.")
+        console.log(err)
+      }
     }
-  });
+  })
 });
+
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
