@@ -50,52 +50,52 @@ app.post('/api/shorturl', function(req,res) {
 
   dns.lookup(original_url.replace('https://','').replace('http://',''), async(err, address) => {
     // if an error occurs, eg. the hostname is incorrect!
-    if (err) {
+    if (err && !original_url.includes('localhost:3000')) {
       console.log(err);
-      res.json({ error: 'invalid url' });
+      return res.json({ error: 'invalid url' });
     }
+    
     // if no error exists
-    else {
-      console.log("Buscando URL");
-      try {
-        // Verifica se a URL está no banco de dados
-        const findUrl = await Url.findOne({original_url: original_url}, "original_url short_url");
+    console.log("Buscando URL");
+    try {
+      // Verifica se a URL está no banco de dados
+      const findUrl = await Url.findOne({original_url: original_url}, "original_url short_url");
 
-        // Se não encontrar a URL, inicia o processo para salvá-la
-        if(!findUrl) {
-          console.log("URL não encontrada. Iniciando processo de cadastro.");
+      // Se não encontrar a URL, inicia o processo para salvá-la
+      if(!findUrl) {
+        console.log("URL não encontrada. Iniciando processo de cadastro.");
 
-          // Busca a última short_url para incrementar
-          const findLastShort = await Url.findOne().sort({short_url: -1}).select({short_url: 1});
-          console.log(`Última URL: ${findLastShort.short_url}`);
-          
-          // Cria o registro incrementando o valor obtido
-          let newRegister = {
-            original_url: original_url, 
-            short_url: (findLastShort.short_url + 1)
-          };
-          
-          // Salva o registro e retorna o JSON
-          const insertUrl = await Url.create(newRegister)       ;     
-          console.log(`short_url inserida: ${insertUrl.short_url}`);
-
-          // Retorna o objeto construído
-          res.json(newRegister);
-        }
+        // Busca a última short_url para incrementar
+        const findLastShort = await Url.findOne().sort({short_url: -1}).select({short_url: 1});
+        console.log(`Última URL: ${findLastShort.short_url}`);
         
-        // Se encontrar a URL, a retorna como objeto
-        else {
-          res.json({
-            original_url: findUrl.original_url,
-            short_url: findUrl.short_url
-          });
-        }
+        // Cria o registro incrementando o valor obtido
+        let newRegister = {
+          original_url: original_url, 
+          short_url: (findLastShort.short_url + 1)
+        };
+        
+        // Salva o registro e retorna o JSON
+        const insertUrl = await Url.create(newRegister)       ;     
+        console.log(`short_url inserida: ${insertUrl.short_url}`);
+
+        // Retorna o objeto construído
+        res.json(newRegister);
       }
-      catch(err) {
-        console.log("Não foi possível buscar ou inserir no banco de dados.")
-        console.log(err)
+      
+      // Se encontrar a URL, a retorna como objeto
+      else {
+        res.json({
+          original_url: findUrl.original_url,
+          short_url: findUrl.short_url
+        });
       }
     }
+    catch(err) {
+      console.log("Não foi possível buscar ou inserir no banco de dados.")
+      console.log(err)
+    }
+    
   })
 });
 
