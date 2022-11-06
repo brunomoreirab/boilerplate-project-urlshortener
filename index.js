@@ -50,7 +50,7 @@ app.post('/api/shorturl', function(req,res) {
 
   dns.lookup(original_url.replace('https://','').replace('http://',''), async(err, address) => {
     // if an error occurs, eg. the hostname is incorrect!
-    if (err && !original_url.includes('localhost:3000')) {
+    if (err && !original_url.includes('brunomoreirab')) {
       console.log(err);
       return res.json({ error: 'invalid url' });
     }
